@@ -19,7 +19,7 @@ void Material::addUniformBuffer(uint32_t binding, const std::vector<VkBuffer>& b
 	m_uniformBuffers.emplace(binding, data);
 }
 
-void Material::build(VkSampler sampler)
+void Material::build(Renderer& renderer, VkSampler sampler)
 {
 	std::vector<VkDescriptorSetLayout> layouts(m_MAX_FRAMES_IN_FLIGHT, m_deslayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
@@ -43,6 +43,26 @@ void Material::build(VkSampler sampler)
 		std::vector<VkDescriptorImageInfo> imageInfos;
 		bufferInfos.reserve(m_uniformBuffers.size());
 		imageInfos.reserve(m_textures.size());
+
+		//¼ÓÔØÈ«¾Öglobal uniform
+		VkDescriptorBufferInfo globalBufferInfo{};
+		globalBufferInfo.buffer = renderer.getGlbUniformBuffers()[i]->getHandle();
+		globalBufferInfo.offset = 0;
+		globalBufferInfo.range = sizeof(GlobalUniformBufferObject);
+
+
+		VkWriteDescriptorSet descriptorWrite{};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = m_descriptorSets[i];
+		descriptorWrite.dstBinding = 0;
+		descriptorWrite.dstArrayElement = 0;
+		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.pImageInfo = nullptr;
+		descriptorWrite.pBufferInfo = &globalBufferInfo; // Optional
+		descriptorWrite.pTexelBufferView = nullptr; // Optional
+
+		descriptorWrites.push_back(descriptorWrite);
 
 		for (auto& key : m_uniformBuffers)
 		{
@@ -96,6 +116,7 @@ void Material::build(VkSampler sampler)
 
 void Material::bind(VkCommandBuffer cmdbuf, VkPipelineLayout layout, uint32_t currentFrame)
 {
+	vkCmdBindPipeline(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
 	vkCmdBindDescriptorSets(cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &m_descriptorSets[currentFrame], 0, nullptr);
 }
 

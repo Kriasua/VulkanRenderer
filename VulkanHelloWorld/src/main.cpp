@@ -43,7 +43,7 @@ public:
 		initWindow();
 		m_device = std::make_unique<Devices>(window);
 		m_swapChain = std::make_unique<SwapChain>(*m_device, windowExtent);
-		m_renderer = std::make_unique<Renderer>(*m_device, *m_swapChain, MAX_FRAMES_IN_FLIGHT);
+		m_renderer = std::make_unique<Renderer>(*m_device, *m_swapChain, m_camera, MAX_FRAMES_IN_FLIGHT);
 		initVulkan();
 		mainLoop();
 		cleanUp();
@@ -53,26 +53,16 @@ private:
 	std::unique_ptr<Renderer> m_renderer;
 	std::unique_ptr<Devices> m_device;
 	std::unique_ptr<SwapChain> m_swapChain;
+
 	std::unique_ptr<PipelineLayout> m_pipelineLayout;
-	std::unique_ptr<Pipeline> m_pipeline;
+	std::shared_ptr<Pipeline> m_pipeline;
+
 	std::unique_ptr<RenderPass> m_mainRenderPass;
 	VkExtent2D windowExtent;
 
 	VkDescriptorSetLayout descriptorSetLayout;
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 	std::vector<std::unique_ptr<Framebuffer>> m_framebuffers;
-	std::vector<VkCommandBuffer> commandBuffers;
-
-	VkSemaphore imageAvailableSemaphore;
-	VkSemaphore renderFinishedSemaphore;
-
-	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
-	std::vector<VkFence> inFlightFences;
-	size_t currentFrame = 0;
-
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBuffersMemory;
 
 	VkSampler textureSampler;
 
@@ -83,6 +73,7 @@ private:
 	std::shared_ptr<Material> m_vikingRoomMat;
 	std::unique_ptr<Entity> m_vikingEntity;
 	std::unique_ptr<Entity> m_vikingEntity2;
+
 	Camera m_camera{};
 	float deltaTime;
 	float lastFrame;
@@ -118,22 +109,17 @@ private:
 		m_vikingRoomTex = Texture::loadFromFile(*m_device, "images/viking_room.png");
 		m_yoasobiTex = Texture::loadFromFile(*m_device, "images/yoasobi.jpg");
 		createTextureSampler();
+
 		m_vikingRoom = std::make_unique<Model>(*m_device, "models/VikingRoom/viking_room.obj");
-		Descriptor::createUniformBuffers(m_device->getLogicalDevice(), m_device->getPhysicalDevice(), m_swapChain->getSwapChainImages(), uniformBuffers, uniformBuffersMemory);
-		
-		
 		m_vikingRoomMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), descriptorSetLayout);
-		
 		m_vikingRoomMat->addTexture(1, m_vikingRoomTex);
-		m_vikingRoomMat->addUniformBuffer(0, uniformBuffers,sizeof(UniformBufferObject));
-		m_vikingRoomMat->build(textureSampler);
+		m_vikingRoomMat->build(*m_renderer,textureSampler);
+		m_vikingRoomMat->setPipeline(m_pipeline);
 
 		m_vikingEntity = std::make_unique<Entity>(m_vikingRoom, m_vikingRoomMat);
 		m_vikingEntity2 = std::make_unique<Entity>(m_vikingRoom, m_vikingRoomMat);
 		m_vikingEntity2->setScale(glm::vec3{ 0.5f });
 		m_vikingEntity2->setPosition(glm::vec3{ 2.0f,0.0f,0.0f });
-		createCommandBuffers();
-		createSyncObjects();
 	}
 
 	void processInput(GLFWwindow* window) {
@@ -163,7 +149,6 @@ private:
 			firstMouse = false;
 		}
 
-		//float xoffset = xpos - lastX;
 		float xoffset = lastX - xpos;
 		float yoffset = lastY - ypos; // 注意这里是反的，因为屏幕Y坐标是从上往下的
 		lastX = xpos;
@@ -216,7 +201,6 @@ private:
 
 	void cleanUpSwapChain()
 	{	
-		vkFreeCommandBuffers(m_device->getLogicalDevice(), m_device->getCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 		m_framebuffers.clear();
 		m_depthTex.reset();
 		if (m_mainRenderPass) {
@@ -228,11 +212,6 @@ private:
 	{
 		vkDeviceWaitIdle(m_device->getLogicalDevice());
 		cleanUpSwapChain();
-		for (size_t i = 0; i < uniformBuffers.size(); i++) {
-			vkDestroyBuffer(m_device->getLogicalDevice(), uniformBuffers[i], nullptr);
-			vkFreeMemory(m_device->getLogicalDevice(), uniformBuffersMemory[i], nullptr);
-		}
-
 		vkDestroySampler(m_device->getLogicalDevice(), textureSampler, nullptr);
 		m_vikingEntity2.reset();
 		m_vikingEntity.reset();
@@ -241,14 +220,9 @@ private:
 		m_vikingRoomTex.reset();
 		vkDestroyDescriptorSetLayout(m_device->getLogicalDevice(), descriptorSetLayout, nullptr);
 		m_vikingRoom.reset();
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			vkDestroySemaphore(m_device->getLogicalDevice(), renderFinishedSemaphores[i], nullptr);
-			vkDestroySemaphore(m_device->getLogicalDevice(), imageAvailableSemaphores[i], nullptr);
-			vkDestroyFence(m_device->getLogicalDevice(), inFlightFences[i], nullptr);
-		}
 		m_pipeline.reset();
 		m_pipelineLayout.reset();
+		m_renderer.reset();
 		m_swapChain.reset();
 		m_device.reset();
 		glfwDestroyWindow(window);
@@ -264,54 +238,19 @@ private:
 		* 3.等到信号量renderFinishedSemaphore变“绿灯”时呈现图像，把刚才渲染好的图像提交给交换链进行显示。
 		*/
 
-		vkWaitForFences(m_device->getLogicalDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
-		
-		uint32_t imageIndex;
-		VkResult result = vkAcquireNextImageKHR(m_device->getLogicalDevice(), m_swapChain->getSwapChain(), std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		VkCommandBuffer cmd = m_renderer->beginFrame();
+		if (cmd == VK_NULL_HANDLE) {
 			recreateSwapChain();
 			return;
 		}
-		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-			throw std::runtime_error("failed to acquire swap chain image!");
-		}
 
-		Descriptor::updateUniformBuffer(m_device->getLogicalDevice(),uniformBuffersMemory, m_swapChain->getSwapChainExtent(),imageIndex, m_camera);
+		m_renderer->updateGlbUBO();
+		m_renderer->beginRenderPass(cmd, m_mainRenderPass->getHandle(), m_framebuffers[m_renderer->getImageIndex()]->getHandle(), m_swapChain->getSwapChainExtent());
+		m_vikingEntity->draw(cmd, m_pipelineLayout->getHandle(), m_renderer->getFrameIndex());
+		m_vikingEntity2->draw(cmd, m_pipelineLayout->getHandle(), m_renderer->getFrameIndex());
+		m_renderer->endRenderPass(cmd);
+		VkResult result = m_renderer->endFrame();
 
-		vkResetFences(m_device->getLogicalDevice(), 1, &inFlightFences[currentFrame]);
-
-		VkSubmitInfo submitInfo = {};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-		std::array<VkSemaphore,1> waitSemaphores = { imageAvailableSemaphores[currentFrame]};
-		std::array<VkPipelineStageFlags,1> waitStages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-
-		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = waitSemaphores.data();
-		submitInfo.pWaitDstStageMask = waitStages.data();
-
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
-
-		std::array<VkSemaphore,1> signalSemaphores = { renderFinishedSemaphores[currentFrame]};
-		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = signalSemaphores.data();
-		if (vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to submit draw command buffer!");
-		}
-
-		VkPresentInfoKHR presentInfo = {};
-		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		presentInfo.waitSemaphoreCount = 1;
-		presentInfo.pWaitSemaphores = signalSemaphores.data();
-		std::array<VkSwapchainKHR, 1> swapChains = { m_swapChain->getSwapChain() };
-		presentInfo.swapchainCount = 1;
-		presentInfo.pSwapchains = swapChains.data();
-		presentInfo.pImageIndices = &imageIndex;
-		presentInfo.pResults = nullptr;
-		result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
 			framebufferResized = false;
 			recreateSwapChain();
@@ -320,8 +259,6 @@ private:
 			throw std::runtime_error("failed to present swap chain image!");
 		}
 
-
-		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 
 	void createRenderPass()
@@ -397,7 +334,7 @@ private:
 		builder.setPipelineLayout(m_pipelineLayout->getHandle());
 		
 		VkPipeline rawPipeline = builder.build(m_device->getLogicalDevice(), m_mainRenderPass->getHandle());
-		m_pipeline = std::make_unique<Pipeline>(m_device->getLogicalDevice(), rawPipeline);
+		m_pipeline = std::make_shared<Pipeline>(m_device->getLogicalDevice(), rawPipeline);
 
 	}
 
@@ -413,108 +350,6 @@ private:
 
 			m_framebuffers.push_back(std::make_unique<Framebuffer>(m_device->getLogicalDevice(),
 				m_mainRenderPass->getHandle(), m_swapChain->getSwapChainExtent(), attachs));
-		}
-	}
-
-	void createCommandBuffers()
-	{
-		commandBuffers.resize(m_framebuffers.size());
-		
-		//从commandPool里面申请内存给commandBuffers
-		//有几个framebuffer就申请几个commandBuffer
-		VkCommandBufferAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = m_device->getCommandPool();
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
-		if (vkAllocateCommandBuffers(m_device->getLogicalDevice(), &allocInfo, commandBuffers.data()) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to allocate command buffers!");
-		}
-
-		for (size_t i = 0; i < commandBuffers.size(); i++)
-		{
-			VkCommandBufferBeginInfo beginInfo = {};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
-			beginInfo.pInheritanceInfo = nullptr;
-			if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS)
-			{
-				throw std::runtime_error("failed to begin recording command buffer!");
-			}
-
-			VkRenderPassBeginInfo renderPassInfo = {};
-			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassInfo.renderPass = m_mainRenderPass->getHandle();;
-			renderPassInfo.framebuffer = m_framebuffers[i]->getHandle();
-			renderPassInfo.renderArea.offset = { 0, 0 };
-			renderPassInfo.renderArea.extent = m_swapChain->getSwapChainExtent();
-
-			std::array<VkClearValue, 2> clearValues{};
-			clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-			clearValues[1].depthStencil = { 1.0f,0 };
-
-			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-			renderPassInfo.pClearValues = clearValues.data();
-
-			//开始录制
-			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
-
-			// 配置并设置动态视口 (Viewport)
-			VkViewport viewport{};
-			viewport.x = 0.0f;
-			viewport.y = 0.0f;
-			viewport.width = static_cast<float>(m_swapChain->getSwapChainExtent().width);
-			viewport.height = static_cast<float>(m_swapChain->getSwapChainExtent().height);
-			viewport.minDepth = 0.0f; // 深度范围：近平面
-			viewport.maxDepth = 1.0f; // 深度范围：远平面
-			vkCmdSetViewport(commandBuffers[i], 0, 1, &viewport);
-
-			// 配置并设置动态裁剪矩形 (Scissor)
-			VkRect2D scissor{};
-			scissor.offset = { 0, 0 };
-			scissor.extent = m_swapChain->getSwapChainExtent();
-			vkCmdSetScissor(commandBuffers[i], 0, 1, &scissor);
-
-			m_vikingEntity->draw(commandBuffers[i], m_pipelineLayout->getHandle(), i);
-			m_vikingEntity2->draw(commandBuffers[i], m_pipelineLayout->getHandle(), i);
-			vkCmdEndRenderPass(commandBuffers[i]);
-			if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("failed to record command buffer!");
-			}
-		}
-		
-	}
-
-	void createSyncObjects()
-	{
-		size_t n = m_framebuffers.size();
-		imageAvailableSemaphores.resize(n);
-		renderFinishedSemaphores.resize(n);
-		inFlightFences.resize(n);
-
-		VkSemaphoreCreateInfo semaphoreInfo = {};
-		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			if (vkCreateSemaphore(m_device->getLogicalDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
-				vkCreateSemaphore(m_device->getLogicalDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("failed to create semaphores!");
-			}
-		}
-
-		VkFenceCreateInfo fenceInfo = {};
-		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			if (vkCreateFence(m_device->getLogicalDevice(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
-			{
-				throw std::runtime_error("failed to create fences!");
-			}
 		}
 	}
 
@@ -539,7 +374,6 @@ private:
 		createGraphicsPipeline();
 		m_depthTex = Texture::createDepthTexture(*m_device, m_swapChain->getSwapChainExtent().width, m_swapChain->getSwapChainExtent().height);
 		createSwapchainFrameBuffers();
-		createCommandBuffers();
 		std::cout << "Recreated Swapchain!" << std::endl;
 	}
 

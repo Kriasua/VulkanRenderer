@@ -504,6 +504,7 @@
     <ClInclude Include="src\Core\ValidationLayerAssist.h" />
     <ClInclude Include="src\Buffer.h" />
     <ClInclude Include="src\Renderer\Renderer.h" />
+    <ClInclude Include="src\Scene\Scene.h" />
     <ClInclude Include="src\Vertex.h" />
   </ItemGroup>
   <ItemGroup>
@@ -522,6 +523,7 @@
     <ClCompile Include="src\Core\ValidationLayerAssist.cpp" />
     <ClCompile Include="src\Buffer.cpp" />
     <ClCompile Include="src\Renderer\Renderer.cpp" />
+    <ClCompile Include="src\Scene\Scene.cpp" />
     <ClCompile Include="src\Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>

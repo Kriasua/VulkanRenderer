@@ -113,3 +113,24 @@ void CommandBuffer::endSingleTimeCommands(VkDevice device, VkCommandPool command
 
 
 
+UniformBuffer::UniformBuffer(Devices& device, VkDeviceSize size)
+	:m_device(device), m_size(size)
+{
+	Buffer::createBuffer(m_device.getLogicalDevice(), m_device.getPhysicalDevice(), m_size,
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		m_buffer, m_buffermemory);
+
+	vkMapMemory(m_device.getLogicalDevice(),m_buffermemory , 0, m_size, 0, &m_mappedData);
+}
+
+UniformBuffer::~UniformBuffer()
+{
+	vkUnmapMemory(m_device.getLogicalDevice(), m_buffermemory);
+	vkDestroyBuffer(m_device.getLogicalDevice(), m_buffer, nullptr);
+	vkFreeMemory(m_device.getLogicalDevice(), m_buffermemory, nullptr);
+}
+
+void UniformBuffer::update(const void* data)
+{
+	memcpy(m_mappedData, data, m_size);
+}

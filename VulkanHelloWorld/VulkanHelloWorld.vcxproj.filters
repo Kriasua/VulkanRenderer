@@ -1041,6 +1041,9 @@
     <ClInclude Include="src\Renderer\Renderer.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="src\Scene\Scene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -1089,6 +1092,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="src\Renderer\Renderer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Scene\Scene.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
