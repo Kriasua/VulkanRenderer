@@ -35,7 +35,9 @@ public:
 	}
 
 	void enableDepthTest();
-
+	void disableDynamicState() {
+		m_dynamicStates.clear();
+	}
 
 private:
 	VkExtent2D m_SwapChainExtent;

@@ -9,6 +9,7 @@ struct AttachmentConfig
 	VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	VkImageLayout finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	VkClearValue clearValue;
 };
 
 struct DependencyConfig
@@ -43,11 +44,12 @@ public:
 	void create();
 
 	const VkRenderPass& getHandle() const { return m_renderpass; }
-
+	const std::vector<VkClearValue>& getClearValues() const { return m_clearValues; }
 private:
 	VkDevice m_device;
 	std::vector<VkAttachmentDescription> m_descriptions;
 	std::vector<SubpassConfig> m_configs;
 	std::vector<VkSubpassDependency> m_dependencies;
+	std::vector<VkClearValue> m_clearValues;
 	VkRenderPass m_renderpass;
 };

@@ -14,19 +14,23 @@ Renderer::Renderer(Devices& device, SwapChain& swapchain, Camera& cam, const int
 	createCommandBuffers();
 	createGlobalUniformBuffers();
 	createSamplers();
-	m_depthTex = Texture::createDepthTexture(m_device, m_swapchain.getSwapChainExtent().width, m_swapchain.getSwapChainExtent().height);
+	createDepthResource();
 	createSwapchainFrameBuffers();
+	createShadowMapFramebuffers();
 }
 
 void Renderer::createRenderPass()
 {
+	//////主renderpass
 	m_RenderPass = std::make_unique<RenderPass>(m_device.getLogicalDevice());
+
 	AttachmentConfig colorAttachment = {};
 	colorAttachment.format = m_swapchain.getSwapChainImageFormat();
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // 渲染完用于显示
+	colorAttachment.clearValue.color = { {0.0f,0.0f,0.0f,1.0f} };
 	m_RenderPass->addAttachment(colorAttachment);
 
 	AttachmentConfig depthAttachment = {};
@@ -35,6 +39,7 @@ void Renderer::createRenderPass()
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE; // 渲染完深度数据就可以丢弃了
 	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
 	m_RenderPass->addAttachment(depthAttachment);
 
 	// 3. 配置子流程 (对应原来的 VkSubpassDescription 和 Reference)
@@ -47,13 +52,39 @@ void Renderer::createRenderPass()
 	DependencyConfig dependency = {};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;;
-	dependency.srcAccessMask = 0;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
 
 	m_RenderPass->addDependency(dependency);
 	m_RenderPass->create();
+
+	//创建shadow map的renderpass
+	m_shadowRenderPass = std::make_unique<RenderPass>(m_device.getLogicalDevice());
+	depthAttachment = {};
+	depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	depthAttachment.clearValue.depthStencil = { 1.0f,0 };
+	m_shadowRenderPass->addAttachment(depthAttachment);
+
+	subpass = {};
+	subpass.depthAttachmentIndex = 0;
+	m_shadowRenderPass->addSubpass(subpass);
+
+	dependency = {};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+	m_shadowRenderPass->addDependency(dependency);
+	m_shadowRenderPass->create();
 }
 
 VkCommandBuffer Renderer::beginFrame()
@@ -129,19 +160,16 @@ VkResult Renderer::endFrame()
 	return result;
 }
 
-void Renderer::beginRenderPass(VkCommandBuffer cmd, VkRenderPass renderPass, VkFramebuffer framebuffer, VkExtent2D extent)
+void Renderer::beginRenderPass(VkCommandBuffer cmd, RenderPass& renderPass, VkFramebuffer framebuffer, VkExtent2D extent)
 {
 	VkRenderPassBeginInfo renderPassInfo = {};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = renderPass;
+	renderPassInfo.renderPass = renderPass.getHandle();
 	renderPassInfo.framebuffer = framebuffer;
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = extent;
 
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	clearValues[1].depthStencil = { 1.0f,0 };
-
+	const auto& clearValues = renderPass.getClearValues();
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
@@ -189,8 +217,28 @@ void Renderer::updateGlbUBO()
 	ubo.lightDir = glm::vec4(dir, 0.0f);
 	ubo.lightColor = m_lightColor; 
 
+	//生成光源出深度贴图的VP矩阵
+	// a.设定正交投影范围(根据你平面 14.14 的半径，设为 16.0 留点余量)
+	float sceneRadius = 16.0f;
+	// 参数: left, right, bottom, top, zNear, zFar
+	glm::mat4 lightProjection = glm::ortho(-sceneRadius, sceneRadius, -sceneRadius, sceneRadius, 1.0f, 60.0f);
 
+	// 翻转轴
+	lightProjection[1][1] *= -1;
 
+	glm::vec3 sceneCenter = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 lightPos = sceneCenter - dir * 30.0f;
+	glm::vec3 upVector = glm::vec3(0.0f, 0.0f, 1.0f); 
+
+	// 【安全处理】：如果光线从正上方垂直照下来 (dir.z 接近 1 或 -1)，
+	// dir 会与 upVector 平行，导致 lookAt 计算出 NaN（画面黑屏崩溃）。
+	// 所以当接近垂直时，临时用 Y 轴做 up 向量。
+	if (abs(dir.z) > 0.99f) {
+		upVector = glm::vec3(0.0f, 1.0f, 0.0f);
+	}
+
+	glm::mat4 lightView = glm::lookAt(lightPos, sceneCenter, upVector);
+	ubo.lightMat = lightProjection * lightView;
 	m_gblUniformBuffers[m_currentFrame]->update(&ubo);
 }
 
@@ -342,6 +390,14 @@ void Renderer::createSamplers()
 	}
 }
 
+void Renderer::createShadowMapFramebuffers()
+{
+	VkExtent2D extent = { 2048,2048 };
+	std::vector<VkImageView> attachs = { m_shadowDepthTex->getImageView() };
+	m_shadowPassframebuffer = std::make_unique<Framebuffer>(m_device.getLogicalDevice(),
+			m_shadowRenderPass->getHandle(), extent, attachs);
+}
+
 void Renderer::createSwapchainFrameBuffers()
 {
 	const std::vector<VkImageView>& swapchainImageViews = m_swapchain.getSwapChainImageViews();
@@ -372,6 +428,9 @@ void Renderer::createDepthResource() {
 		m_swapchain.getSwapChainExtent().width,
 		m_swapchain.getSwapChainExtent().height
 	);
+
+	m_shadowDepthTex = Texture::createDepthTexture(m_device,2048,2048,
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 }
 
 void Renderer::initImGui(GLFWwindow* window)

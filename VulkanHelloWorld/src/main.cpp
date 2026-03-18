@@ -93,6 +93,12 @@ private:
 
 	void initVulkan()
 	{
+		//创建阴影贴图管线
+		//std::shared_ptr<Pipeline> shadowPipeline = PipelineFactory::createShadowPipeline(*m_device,m_renderer->getShadowRenderPass().getHandle(),
+		//Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice()));
+
+
+
 		//创建模型，贴图（实体资源）
 		m_scene = std::make_unique<Scene>(*m_device);
 		m_scene->loadTexture("images/viking_room.png");//0号贴图
@@ -104,17 +110,14 @@ private:
 		std::shared_ptr<Material> m_vikingRoomMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), PipelineFactory::createStandardPipeline(
 			*m_device, m_renderer->getRenderPass().getHandle(), m_swapChain->getSwapChainExtent(),
 			Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice())));
-		m_vikingRoomMat->addTexture(1, m_scene->getTextures()[0]);
-		m_vikingRoomMat->build(*m_renderer,m_renderer->getLinearRepeatSampler());
+		m_vikingRoomMat->addTexture(1, m_scene->getTextures()[0], m_renderer->getLinearRepeatSampler());
+		m_vikingRoomMat->build(*m_renderer);
 
 		std::shared_ptr<Material> m_PureColorMat = std::make_shared<Material>(*m_device, m_swapChain->getSwapChainImages().size(), PipelineFactory::createStandardPipeline(
 			*m_device, m_renderer->getRenderPass().getHandle(), m_swapChain->getSwapChainExtent(),
 			Descriptor::createDescriptorSetLayout(m_device->getLogicalDevice())));
-		m_PureColorMat->addTexture(1, m_scene->getTextures()[1]);
-		m_PureColorMat->build(*m_renderer, m_renderer->getLinearRepeatSampler());
-
-
-
+		m_PureColorMat->addTexture(1, m_scene->getTextures()[1], m_renderer->getLinearRepeatSampler());
+		m_PureColorMat->build(*m_renderer);
 
 		m_scene->addMaterial(m_vikingRoomMat);
 		m_scene->addMaterial(m_PureColorMat);
@@ -265,7 +268,7 @@ private:
 		}
 
 		m_renderer->updateGlbUBO();
-		m_renderer->beginRenderPass(cmd, m_renderer->getRenderPass().getHandle(), m_renderer->getFrameBuffers()[m_renderer->getImageIndex()]->getHandle(), m_swapChain->getSwapChainExtent());
+		m_renderer->beginRenderPass(cmd, m_renderer->getRenderPass(), m_renderer->getFrameBuffers()[m_renderer->getImageIndex()]->getHandle(), m_swapChain->getSwapChainExtent());
 		m_scene->draw(cmd, m_renderer->getFrameIndex());
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 		m_renderer->endRenderPass(cmd);

@@ -16,8 +16,9 @@ void RenderPass::addAttachment(const AttachmentConfig& config)
 	attach.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	attach.initialLayout = config.initialLayout;
 	attach.finalLayout = config.finalLayout;
-
 	m_descriptions.push_back(attach);
+
+	m_clearValues.push_back(config.clearValue);
 }
 
 void RenderPass::addDependency(const DependencyConfig& config)
@@ -73,8 +74,8 @@ void RenderPass::create()
 		VkSubpassDescription subpass = {};
 		subpass.colorAttachmentCount = static_cast<uint32_t>(colorRefs[i].size());
 		subpass.inputAttachmentCount = static_cast<uint32_t>(inputRefs[i].size());
-		subpass.pColorAttachments = colorRefs[i].data();
-		subpass.pInputAttachments = inputRefs[i].data();
+		subpass.pColorAttachments = colorRefs.empty()? nullptr : colorRefs[i].data();
+		subpass.pInputAttachments = inputRefs.empty() ? nullptr : inputRefs[i].data();
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		
 

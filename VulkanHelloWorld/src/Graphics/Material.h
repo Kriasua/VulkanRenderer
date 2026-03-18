@@ -17,10 +17,10 @@ public:
 	Material(const Material&) = delete;
 	Material& operator=(const Material&) = delete;
 
-	void addTexture(uint32_t binding, std::shared_ptr<Texture> texture);
+	void addTexture(uint32_t binding, std::shared_ptr<Texture> texture, VkSampler sampler);
 	void addUniformBuffer(uint32_t binding, const std::vector<VkBuffer>& buffers, VkDeviceSize range);
 
-	void build(Renderer& renderer, VkSampler sampler);
+	void build(Renderer& renderer);
 	void bind(VkCommandBuffer cmdbuf, uint32_t currentFrame);
 	
 	void setPipeline(std::shared_ptr<Pipeline> pipeline)
@@ -39,11 +39,12 @@ private:
 	std::shared_ptr<Pipeline> m_pipeline;
 	std::vector<VkDescriptorSet> m_descriptorSets;
 	VkDescriptorSetLayout m_deslayout = VK_NULL_HANDLE;
-
+	int m_descriptorCounts = 1;
 	struct TextureData
 	{
 		uint32_t binding;
 		std::shared_ptr<Texture> tex;
+		VkSampler sampler;
 	};
 
 	struct UniformData

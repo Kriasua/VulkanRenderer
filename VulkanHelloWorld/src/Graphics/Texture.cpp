@@ -97,7 +97,7 @@ std::shared_ptr<Texture> Texture::loadFromFile(Devices& device, const std::strin
 	return texture;
 }
 
-std::unique_ptr<Texture> Texture::createDepthTexture(Devices& device, uint32_t width, uint32_t height)
+std::unique_ptr<Texture> Texture::createDepthTexture(Devices& device, uint32_t width, uint32_t height, VkImageUsageFlags usage)
 {
 	return std::make_unique<Texture>(
 		device,
@@ -105,7 +105,7 @@ std::unique_ptr<Texture> Texture::createDepthTexture(Devices& device, uint32_t w
 		height,
 		VK_FORMAT_D32_SFLOAT,                             // 强制 32 位浮点深度格式
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,      // 专门作为深度附件
+		usage,      // 专门作为深度附件
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		VK_IMAGE_ASPECT_DEPTH_BIT                         // 深度视角
 	);

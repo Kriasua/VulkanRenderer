@@ -13,4 +13,7 @@ public:
 	// 为以后的 NPR 预留接口
 	static std::shared_ptr<Pipeline> createToonPipeline(Devices& device, VkRenderPass renderPass, VkExtent2D extent, VkDescriptorSetLayout layout);
 	static std::shared_ptr<Pipeline> createOutlinePipeline(Devices& device, VkRenderPass renderPass, VkExtent2D extent, VkDescriptorSetLayout layout);
+
+	//阴影贴图管线
+	static std::shared_ptr<Pipeline> createShadowPipeline(Devices& device, VkRenderPass renderPass, VkDescriptorSetLayout layout);
 };

@@ -28,7 +28,7 @@ public:
 	static std::shared_ptr<Texture> createPureColorTexture(Devices& device, uint32_t color);
 
 	static std::shared_ptr<Texture> loadFromFile(Devices& device, const std::string& path);
-	static std::unique_ptr<Texture> createDepthTexture(Devices& device, uint32_t width, uint32_t height);
+	static std::unique_ptr<Texture> createDepthTexture(Devices& device, uint32_t width, uint32_t height, VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 private:
 	Devices& m_device; // 引用Devices 类，方便获取物理和逻辑设备
 	VkImage m_image = VK_NULL_HANDLE;

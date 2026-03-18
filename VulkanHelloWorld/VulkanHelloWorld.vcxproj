@@ -744,20 +744,6 @@
     <None Include="dependencies\glm\gtx\vector_angle.inl" />
     <None Include="dependencies\glm\gtx\vector_query.inl" />
     <None Include="dependencies\glm\gtx\wrap.inl" />
-    <CustomBuild Include="shader\frag.frag">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
-    </CustomBuild>
-    <CustomBuild Include="shader\vert.vert">
-      <FileType>Document</FileType>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\MyResearch\vulkan\vulkanSDK\Bin\glslangValidator.exe -V "%(Identity)" -o "$(ProjectDir)shader\%(Filename).spv"</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)shader\%(Filename).spv;%(Outputs)</Outputs>
-    </CustomBuild>
     <None Include="dependencies\imgui\backends\imgui_impl_metal.mm" />
     <None Include="dependencies\imgui\backends\imgui_impl_osx.mm" />
   </ItemGroup>

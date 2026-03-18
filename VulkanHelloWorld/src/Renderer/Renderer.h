@@ -27,15 +27,14 @@ public:
 	Renderer(const Renderer&) = delete;
 	Renderer& operator=(const Renderer&) = delete;
 
-	float m_lightYaw = 45.0f;    // 水平旋转角 (0-360)
-	float m_lightPitch = 45.0f;  // 俯仰角 (-90 到 90)
+	float m_lightYaw = 45.0f;    
+	float m_lightPitch = 45.0f;  
 	glm::vec4 m_lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 
 	VkCommandBuffer beginFrame();
 	VkResult endFrame();
-	void beginRenderPass(VkCommandBuffer cmd, VkRenderPass renderPass, VkFramebuffer framebuffer, VkExtent2D extent);
+	void beginRenderPass(VkCommandBuffer cmd, RenderPass& renderPass, VkFramebuffer framebuffer, VkExtent2D extent);
 	void endRenderPass(VkCommandBuffer cmd);
-
 	void updateGlbUBO();
 	void createRenderPass();
 	void createSwapchainFrameBuffers();
@@ -51,17 +50,16 @@ public:
 	const VkSampler getShadowSampler() const { return m_ShadowSampler; };        // 专门给阴影贴图用
 	const VkSampler getUISampler() const { return m_UISampler; };
 	std::vector<std::unique_ptr<Framebuffer>>& getFrameBuffers() { return m_framebuffers; }
-	
 	RenderPass& getRenderPass() { return *m_RenderPass; }
-
-	std::vector<VkCommandBuffer> m_commandBuffers;
-
+	RenderPass& getShadowRenderPass() { return *m_shadowRenderPass; }
 	std::vector<std::unique_ptr<UniformBuffer>>& getGlbUniformBuffers() { return m_gblUniformBuffers; }
+
+
 private:
 	const int m_MAX_FRAMES_IN_FLIGHT;
 	size_t m_currentFrame = 0;
 	uint32_t m_imageIndex = 0;
-
+	std::vector<VkCommandBuffer> m_commandBuffers;
 	Devices& m_device;
 	SwapChain& m_swapchain;
 	Camera& m_camera;
@@ -69,6 +67,7 @@ private:
 	VkDescriptorPool m_imguiPool = VK_NULL_HANDLE;
 
 	std::unique_ptr<Texture> m_depthTex;
+	std::unique_ptr<Texture> m_shadowDepthTex;
 
 	VkSampler m_LinearRepeatSampler = VK_NULL_HANDLE;
 	VkSampler m_NearestRepeatSampler = VK_NULL_HANDLE;
@@ -76,6 +75,7 @@ private:
 	VkSampler m_UISampler = VK_NULL_HANDLE;
 
 	std::unique_ptr<RenderPass> m_RenderPass;
+	std::unique_ptr<RenderPass> m_shadowRenderPass;
 
 	std::vector<VkSemaphore> m_imageAvailableSemaphores;
 	std::vector<VkSemaphore> m_renderFinishedSemaphores;
@@ -83,9 +83,11 @@ private:
 	
 	std::vector<std::unique_ptr<UniformBuffer>> m_gblUniformBuffers;
 	std::vector<std::unique_ptr<Framebuffer>> m_framebuffers;
+	std::unique_ptr<Framebuffer> m_shadowPassframebuffer;
 	
 	void createSyncObjects();
 	void createCommandBuffers();
 	void createGlobalUniformBuffers();
 	void createSamplers();
+	void createShadowMapFramebuffers();
 };

@@ -7,9 +7,9 @@ Material::Material(Devices& device, int maxFrame, std::shared_ptr<Pipeline> pipe
 	m_deslayout = m_pipeline->getDescriptorSetLayout();
 }
 
-void Material::addTexture(uint32_t binding, std::shared_ptr<Texture> texture)
+void Material::addTexture(uint32_t binding, std::shared_ptr<Texture> texture, VkSampler sampler)
 {
-	TextureData data = { binding,texture };
+	TextureData data = { binding,texture, sampler };
 	m_textures.emplace(binding, data);
 }
 
@@ -19,10 +19,11 @@ void Material::addUniformBuffer(uint32_t binding, const std::vector<VkBuffer>& b
 	m_uniformBuffers.emplace(binding, data);
 }
 
-void Material::build(Renderer& renderer, VkSampler sampler)
+void Material::build(Renderer& renderer)
 {
 	std::cout << "Allocating sets with layout: " << m_deslayout << std::endl;
 	std::vector<VkDescriptorSetLayout> layouts(m_MAX_FRAMES_IN_FLIGHT, m_deslayout);
+
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = m_device.getDescriptorPool();
@@ -92,7 +93,7 @@ void Material::build(Renderer& renderer, VkSampler sampler)
 			VkDescriptorImageInfo imageInfo{};
 			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			imageInfo.imageView = key.second.tex->getImageView();
-			imageInfo.sampler = sampler;
+			imageInfo.sampler = key.second.sampler;
 			imageInfos.push_back(imageInfo);
 
 			VkWriteDescriptorSet descriptorWrite{};
