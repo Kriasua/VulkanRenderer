@@ -23,7 +23,7 @@ struct GlobalUniformBufferObject {
 class Renderer
 {
 public:
-	Renderer(Devices& device, SwapChain& swapchain, Camera& cam, int maxFrame);
+	Renderer(Devices& device, SwapChain* swapchain, Camera& cam, int maxFrame);
 	~Renderer();
 	Renderer(const Renderer&) = delete;
 	Renderer& operator=(const Renderer&) = delete;
@@ -58,13 +58,15 @@ public:
 	const std::shared_ptr<Pipeline> getShadowPipeline() const { return m_shadowPipeline; }
 	VkDescriptorSet getShadowDescriptorSet(uint32_t frameIndex) { return m_shadowDescriptorSets[frameIndex]; }
 	const std::unique_ptr<Framebuffer>& getShadowPassFrameBuffer() const { return m_shadowPassframebuffer; }
+
+	void setSwapChain(SwapChain* swapchain) { m_swapchain = swapchain; }
 private:
 	const int m_MAX_FRAMES_IN_FLIGHT;
 	size_t m_currentFrame = 0;
 	uint32_t m_imageIndex = 0;
 	std::vector<VkCommandBuffer> m_commandBuffers;
 	Devices& m_device;
-	SwapChain& m_swapchain;
+	SwapChain* m_swapchain;
 	Camera& m_camera;
 	std::shared_ptr<Pipeline> m_shadowPipeline;
 	VkDescriptorSetLayout m_shadowDescriptorSetLayout = VK_NULL_HANDLE;

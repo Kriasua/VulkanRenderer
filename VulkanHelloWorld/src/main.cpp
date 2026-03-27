@@ -34,6 +34,7 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
 
+//初始为1080p，可直接拉动窗口边缘调节大小
 const uint32_t WIDTH = 1920;
 const uint32_t HEIGHT = 1080;
 const int MAX_FRAMES_IN_FLIGHT = 3;
@@ -48,7 +49,7 @@ public:
 		initWindow();
 		m_device = std::make_unique<Devices>(window,MAX_FRAMES_IN_FLIGHT);
 		m_swapChain = std::make_unique<SwapChain>(*m_device, windowExtent);
-		m_renderer = std::make_unique<Renderer>(*m_device, *m_swapChain, m_camera, MAX_FRAMES_IN_FLIGHT);
+		m_renderer = std::make_unique<Renderer>(*m_device, &(*m_swapChain), m_camera, MAX_FRAMES_IN_FLIGHT);
 		initVulkan();
 		mainLoop();
 		cleanUp();
@@ -313,6 +314,7 @@ private:
 		VkExtent2D newExtent = {width, height};
 		m_swapChain = std::make_unique<SwapChain>(*m_device, newExtent);
 		
+		m_renderer->setSwapChain(&(*m_swapChain));
 		m_renderer->createRenderPass();
 		m_renderer->createDepthResource();
 		m_renderer->createSwapchainFrameBuffers();

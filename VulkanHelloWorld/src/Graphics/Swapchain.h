@@ -11,7 +11,7 @@ public:
 
 	VkSwapchainKHR getSwapChain() const { return m_swapChain; }
 	VkFormat getSwapChainImageFormat() const { return m_swapChainImageFormat; }
-	VkExtent2D getSwapChainExtent() const { return m_swapChainExtent; }
+	VkExtent2D getSwapChainExtent() const { return m_windowExtent; }
 	const std::vector<VkImage>& getSwapChainImages() const { return m_swapChainImages; }
 	const std::vector<VkImageView>& getSwapChainImageViews() const { return m_swapChainImageViews; }
 	//const std::vector<VkFramebuffer>& getSwapChainFramebuffers() const { return m_swapChainFramebuffers; }

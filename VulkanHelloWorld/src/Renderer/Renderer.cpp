@@ -9,7 +9,7 @@
 #include "../Description.h"
 #include "../Graphics/PipelineFactory.h"
 
-Renderer::Renderer(Devices& device, SwapChain& swapchain, Camera& cam, const int maxFrame)
+Renderer::Renderer(Devices& device, SwapChain* swapchain, Camera& cam, const int maxFrame)
 	:m_device(device), m_swapchain(swapchain), m_MAX_FRAMES_IN_FLIGHT(maxFrame), m_camera(cam)
 {
 	createRenderPass();
@@ -29,7 +29,7 @@ void Renderer::createRenderPass()
 	m_RenderPass = std::make_unique<RenderPass>(m_device.getLogicalDevice());
 
 	AttachmentConfig colorAttachment = {};
-	colorAttachment.format = m_swapchain.getSwapChainImageFormat();
+	colorAttachment.format = m_swapchain->getSwapChainImageFormat();
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -95,7 +95,7 @@ VkCommandBuffer Renderer::beginFrame()
 {
 	vkWaitForFences(m_device.getLogicalDevice(), 1, &m_inFlightFences[m_currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 	uint32_t imageIndex;
-	VkResult result = vkAcquireNextImageKHR(m_device.getLogicalDevice(), m_swapchain.getSwapChain(), std::numeric_limits<uint64_t>::max(), m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
+	VkResult result = vkAcquireNextImageKHR(m_device.getLogicalDevice(), m_swapchain->getSwapChain(), std::numeric_limits<uint64_t>::max(), m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		return VK_NULL_HANDLE;
@@ -153,7 +153,7 @@ VkResult Renderer::endFrame()
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores.data();
-	std::array<VkSwapchainKHR, 1> swapChains = { m_swapchain.getSwapChain() };
+	std::array<VkSwapchainKHR, 1> swapChains = { m_swapchain->getSwapChain() };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapChains.data();
 	presentInfo.pImageIndices = &m_imageIndex;
@@ -205,7 +205,7 @@ void Renderer::updateGlbUBO()
 {
 	GlobalUniformBufferObject ubo = {};
 	ubo.view = m_camera.getViewMatrix();
-	ubo.proj = m_camera.getProjectionMatrix(m_swapchain.getSwapChainExtent().width / (float)m_swapchain.getSwapChainExtent().height);
+	ubo.proj = m_camera.getProjectionMatrix(m_swapchain->getSwapChainExtent().width / (float)m_swapchain->getSwapChainExtent().height);
 	ubo.time = static_cast<float>(glfwGetTime());
 
 	float yawRad = glm::radians(m_lightYaw);
@@ -275,7 +275,7 @@ Renderer::~Renderer()
 
 void Renderer::createSyncObjects()
 {
-	size_t n = m_swapchain.getSwapChainImageViews().size();
+	size_t n = m_swapchain->getSwapChainImageViews().size();
 	m_imageAvailableSemaphores.resize(n);
 	m_renderFinishedSemaphores.resize(n);
 	m_inFlightFences.resize(n);
@@ -447,7 +447,7 @@ void Renderer::createShadowDepthResources()
 
 void Renderer::createSwapchainFrameBuffers()
 {
-	const std::vector<VkImageView>& swapchainImageViews = m_swapchain.getSwapChainImageViews();
+	const std::vector<VkImageView>& swapchainImageViews = m_swapchain->getSwapChainImageViews();
 	m_framebuffers.clear();
 	m_framebuffers.reserve(swapchainImageViews.size());
 
@@ -456,7 +456,7 @@ void Renderer::createSwapchainFrameBuffers()
 		std::vector<VkImageView> attachs = { swapchainImageViews[i], m_depthTex->getImageView() };
 
 		m_framebuffers.push_back(std::make_unique<Framebuffer>(m_device.getLogicalDevice(),
-			m_RenderPass->getHandle(), m_swapchain.getSwapChainExtent(), attachs));
+			m_RenderPass->getHandle(), m_swapchain->getSwapChainExtent(), attachs));
 	}
 }
 
@@ -472,8 +472,8 @@ void Renderer::cleanupSwapChainAssets()
 void Renderer::createDepthResource() {
 	m_depthTex = Texture::createDepthTexture(
 		m_device,
-		m_swapchain.getSwapChainExtent().width,
-		m_swapchain.getSwapChainExtent().height
+		m_swapchain->getSwapChainExtent().width,
+		m_swapchain->getSwapChainExtent().height
 	);
 
 	m_shadowDepthTex = Texture::createDepthTexture(m_device,2048,2048,

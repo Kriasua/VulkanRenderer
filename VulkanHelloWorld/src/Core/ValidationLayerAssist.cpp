@@ -5,9 +5,9 @@
 //所以这个函数的参数和vkCreateDebugUtilsMessengerEXT完全一样，只是多了一步获取函数指针的过程。
 VkResult ValidationLayerAssist::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pCallback)
 {
-	//询问，嘿！请问你知道vkCreateDebugUtilsMessengerEXT函数在哪里吗？
+
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-	//找到了，就调用它
+	
 	if (func != nullptr)
 	{
 		return func(instance, pCreateInfo, pAllocator, pCallback);
@@ -79,7 +79,7 @@ void ValidationLayerAssist::populateDebugMessengerCreateInfo(VkDebugUtilsMesseng
 		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 
 	createInfo.pfnUserCallback = ValidationLayerAssist::debugCallback;
-	createInfo.pUserData = (char*)("我叼你妈的");
+	createInfo.pUserData = (char*)("");
 }
 
 std::vector<const char*> ValidationLayerAssist::getRequiredExtensions()

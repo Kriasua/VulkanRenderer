@@ -24,6 +24,7 @@
     <ProjectGuid>{07c114e6-463f-45aa-873c-935c556a7e00}</ProjectGuid>
     <RootNamespace>VulkanHelloWorld</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>VulkanRenderer</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
